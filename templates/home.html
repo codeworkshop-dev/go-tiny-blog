@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.SiteMetaData.Title}}</title>
+  </head>
+  <body>
+    <h1>{{.SiteMetaData.Title}}</h1>
+    <p>{{.SiteMetaData.Description}}</p>
+    <h2>Recent Posts</h2>
+    <ul>
+      {{ range $key, $value := .Posts }}
+      <li><a href="{{ $key }}"> {{ $value.Title }}</a></li>
+      {{ end }}
+    </ul>
+  </body>
+</html>
