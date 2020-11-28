@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/gomarkdown/markdown"
 	"github.com/gorilla/mux"
 	"github.com/gosimple/slug"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 // SiteMetaData is general information about the Site
@@ -30,6 +32,7 @@ type Post struct {
 	Body       string    `json:"body,omitempty"`
 	DatePosted time.Time `json:"datePosted,omitempty"`
 	Title      string    `json:"title,omitempty"`
+	Slug       string    `json:"slug,omitempty"`
 }
 
 // PostMap is a map of posts with the slug as the key.
@@ -54,6 +57,7 @@ type HomePageData struct {
 type PostPageData struct {
 	SiteMetaData SiteMetaData
 	Post         Post
+	HTML         template.HTML
 }
 
 func main() {
@@ -134,10 +138,12 @@ func getPostHandler(db *bolt.DB) http.HandlerFunc {
 			res.Write([]byte("404 Page Not Found"))
 			return
 		}
-		log.Println("Requested post.")
+		log.Printf("Requested: %s by %s \n", post.Title, post.Author)
+		unsafePostHTML := markdown.ToHTML([]byte(post.Body), nil, nil)
+		postHTML := bluemonday.UGCPolicy().SanitizeBytes(unsafePostHTML)
 		res.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		res.WriteHeader(http.StatusOK)
-		postTemplate.Execute(res, PostPageData{SiteMetaData: siteMetaData, Post: *post})
+		postTemplate.Execute(res, PostPageData{SiteMetaData: siteMetaData, Post: *post, HTML: template.HTML(postHTML)})
 	}
 	return fn
 }
@@ -163,7 +169,8 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 				panic(err)
 			}
 		}
-		err = addPost(db, post, slug.Make(post.Title))
+		autoSlug := fmt.Sprintf("%s-%s", slug.Make(post.DatePosted.Format(time.RFC3339)), slug.Make(post.Title))
+		err = addPost(db, post, autoSlug)
 		if err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 			res.Write([]byte("Error writing to DB."))
@@ -232,7 +239,7 @@ func getPost(db *bolt.DB, slug string) (*Post, error) {
 		b := tx.Bucket([]byte("BLOG")).Bucket([]byte("POSTS"))
 		v := b.Get([]byte(slug))
 		if err := json.Unmarshal(v, &result); err != nil {
-			panic(err)
+			return err
 		}
 		return nil
 	})
