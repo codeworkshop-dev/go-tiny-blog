@@ -102,12 +102,8 @@ func main() {
 	os.Exit(0)
 }
 
-// Load and parse the html templates to be used.
-var homeTemplate = template.Must(template.ParseFiles("templates/home.html"))
-var postTemplate = template.Must(template.ParseFiles("templates/post.html"))
-
 // homeHandler returns the list of blog posts rendered in an HTML template.
-func homeHandler(db *bolt.DB) http.HandlerFunc {
+func homeHandler(db *bolt.DB, t *template.Template) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, r *http.Request) {
 		postData, err := listPosts(db)
 		if err != nil {
@@ -119,14 +115,26 @@ func homeHandler(db *bolt.DB) http.HandlerFunc {
 		log.Println("Requested the home page.")
 		res.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		res.WriteHeader(http.StatusOK)
-		homeTemplate.Execute(res, HomePageData{SiteMetaData: siteMetaData, Posts: postData})
+		t.Execute(res, HomePageData{SiteMetaData: siteMetaData, Posts: postData})
+	}
+
+	return fn
+}
+
+// createPostPageHandler serves the UI for creating a post. It is a form that submits to the create post REST endpoint.
+func createPostPageHandler(db *bolt.DB, t *template.Template) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, r *http.Request) {
+		log.Println("Requested the create post page.")
+		res.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		res.WriteHeader(http.StatusOK)
+		t.Execute(res, HomePageData{SiteMetaData: siteMetaData})
 	}
 
 	return fn
 }
 
 // postHandler looks up a specific blog post and returns it as an HTML template.
-func getPostHandler(db *bolt.DB) http.HandlerFunc {
+func getPostHandler(db *bolt.DB, t *template.Template) http.HandlerFunc {
 
 	fn := func(res http.ResponseWriter, r *http.Request) {
 		// Get the URL param named slug from the response.
@@ -143,8 +151,29 @@ func getPostHandler(db *bolt.DB) http.HandlerFunc {
 		postHTML := bluemonday.UGCPolicy().SanitizeBytes(unsafePostHTML)
 		res.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		res.WriteHeader(http.StatusOK)
-		postTemplate.Execute(res, PostPageData{SiteMetaData: siteMetaData, Post: *post, HTML: template.HTML(postHTML)})
+		t.Execute(res, PostPageData{SiteMetaData: siteMetaData, Post: *post, HTML: template.HTML(postHTML)})
 	}
+	return fn
+}
+
+// editPostPageHandler serves the UI for creating a post. It is a form that submits to the create post REST endpoint.
+func editPostPageHandler(db *bolt.DB, t *template.Template) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, r *http.Request) {
+		// Get the URL param named slug from the response.
+		slug := mux.Vars(r)["slug"]
+		post, err := getPost(db, slug)
+		if err != nil {
+			res.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+			res.WriteHeader(http.StatusNotFound)
+			res.Write([]byte("404 Page Not Found"))
+			return
+		}
+		log.Printf("Requested edit page for: %s by %s \n", post.Title, post.Author)
+		res.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		res.WriteHeader(http.StatusOK)
+		t.Execute(res, PostPageData{SiteMetaData: siteMetaData, Post: *post})
+	}
+
 	return fn
 }
 
@@ -169,7 +198,14 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 				panic(err)
 			}
 		}
+
+		// Set the creation time stamp.
+		post.DatePosted = time.Now()
+
+		// Create a URL safe slug from the timestamp and the title.
 		autoSlug := fmt.Sprintf("%s-%s", slug.Make(post.DatePosted.Format(time.RFC3339)), slug.Make(post.Title))
+		post.Slug = autoSlug
+
 		err = addPost(db, post, autoSlug)
 		if err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
@@ -179,6 +215,58 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 		res.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		res.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(res).Encode(post); err != nil {
+			panic(err)
+		}
+	}
+	return fn
+}
+
+func modifyPostHandler(db *bolt.DB) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, r *http.Request) {
+		var post Post
+		slug := mux.Vars(r)["slug"]
+		res.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+		if err != nil {
+			panic(err)
+		}
+		if err := r.Body.Close(); err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(body, &post); err != nil {
+			res.WriteHeader(422) // unprocessable entity
+			if err := json.NewEncoder(res).Encode(err); err != nil {
+				panic(err)
+			}
+		}
+		post.Slug = slug
+		err = addPost(db, post, slug)
+		if err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+			res.Write([]byte("Error writing to DB."))
+			return
+		}
+		res.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(res).Encode(post); err != nil {
+			panic(err)
+		}
+	}
+	return fn
+}
+
+func deletePostHandler(db *bolt.DB) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, r *http.Request) {
+		res.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		slug := mux.Vars(r)["slug"]
+		if err := deletePost(db, slug); err != nil {
+			panic(err)
+		}
+		res.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(res).Encode(struct {
+			Deleted bool
+		}{
+			true,
+		}); err != nil {
 			panic(err)
 		}
 	}
@@ -207,6 +295,7 @@ func addPost(db *bolt.DB, post Post, slug string) error {
 }
 
 // listPosts returns a map of posts indexed by the slug.
+// TODO: We could we add pagination to this!
 func listPosts(db *bolt.DB) (PostMap, error) {
 	results := PostMap{}
 	err := db.View(func(tx *bolt.Tx) error {
@@ -249,6 +338,18 @@ func getPost(db *bolt.DB, slug string) (*Post, error) {
 	return &result, nil
 }
 
+// deletePost deletes a specific post by slug.
+func deletePost(db *bolt.DB, slug string) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+		err := tx.Bucket([]byte("BLOG")).Bucket([]byte("POSTS")).Delete([]byte(slug))
+		if err != nil {
+			return fmt.Errorf("could not delete content: %v", err)
+		}
+		return nil
+	})
+	return err
+}
+
 // INITIALIZATION FUNCTIONS
 // setupDB sets up the database when the program start.
 //  First it connects to the database, then it creates the buckets required to run the app if they do not exist.
@@ -277,10 +378,21 @@ func setupDB() (*bolt.DB, error) {
 
 // newRouter configures and sets up the gorilla mux router paths and connects the route to the handler function.
 func newRouter(db *bolt.DB) *mux.Router {
+
+	// Load and parse the html templates to be used.
+	homeTemplate := template.Must(template.ParseFiles("templates/home.html"))
+	postTemplate := template.Must(template.ParseFiles("templates/post.html"))
+	editTemplate := template.Must(template.ParseFiles("templates/edit-post.html"))
+	createTemplate := template.Must(template.ParseFiles("templates/create-post.html"))
 	r := mux.NewRouter()
 	r.StrictSlash(true)
-	r.HandleFunc("/", homeHandler(db)).Methods("GET")
+	r.HandleFunc("/", homeHandler(db, homeTemplate)).Methods("GET")
 	r.HandleFunc("/", createPostHandler(db)).Methods("POST")
-	r.HandleFunc("/{slug}", getPostHandler(db)).Methods("GET")
+	r.HandleFunc("/create", createPostPageHandler(db, createTemplate)).Methods("GET")
+	r.HandleFunc("/{slug}", getPostHandler(db, postTemplate)).Methods("GET")
+	r.HandleFunc("/{slug}", modifyPostHandler(db)).Methods("POST")
+	r.HandleFunc("/{slug}", deletePostHandler(db)).Methods("DELETE")
+
+	r.HandleFunc("/{slug}/edit", editPostPageHandler(db, editTemplate)).Methods("GET")
 	return r
 }

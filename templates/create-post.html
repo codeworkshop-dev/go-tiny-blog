@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Write a new post</title>
+    <style>
+      html,
+      body,
+      main {
+        height: 100%;
+      }
+      body {
+        background-color: lightgray;
+        font-family: arial;
+        margin: 0.2rem;
+      }
+      main,
+      header {
+        display: flex;
+        flex-direction: column;
+        max-width: 600px;
+        margin: auto;
+      }
+      h1 {
+        font-size: 3rem;
+      }
+      h2 {
+        font-size: 1.5rem;
+      }
+      p {
+        font-size: 1rem;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      a {
+        font-weight: 600;
+        color: #ff4f98;
+        text-decoration: none;
+      }
+      a:hover {
+        color: #ff529a;
+        text-decoration: none;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+      }
+      input,
+      textarea,
+      button {
+        margin: 0.5rem 0;
+        border-radius: 4px;
+        border: none;
+        padding: 12px;
+      }
+      textarea {
+        flex: 1 1 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Write a new Post</h1>
+      <a href="/">Back</a>
+      <input name="title" id="title" placeholder="Title" />
+      <input name="author" id="author" placeholder="Author" />
+      <textarea name="body" id="body"></textarea>
+      <button id="submit">Submit</button>
+      <script>
+        async function postData(url = "", data = {}) {
+          // Default options are marked with *
+          const response = await fetch(url, {
+            method: "POST",
+            mode: "cors",
+            cache: "no-cache",
+            credentials: "same-origin", // include, *same-origin, omit
+            headers: {
+              "Content-Type": "application/json",
+            },
+            redirect: "follow",
+            referrerPolicy: "no-referrer",
+            body: JSON.stringify(data),
+          });
+          return response.json(); // parses JSON response into native JavaScript objects
+        }
+
+        async function handleSubmit(e) {
+          console.log("submitting form");
+          const title = document.getElementById("title").value;
+          const author = document.getElementById("author").value;
+          const body = document.getElementById("body").value;
+          const response = await postData("/", { title, author, body });
+          console.log(response);
+          window.location.href = "/";
+        }
+        const submitButton = document.getElementById("submit");
+        submitButton.addEventListener("click", handleSubmit);
+      </script>
+    </main>
+  </body>
+</html>

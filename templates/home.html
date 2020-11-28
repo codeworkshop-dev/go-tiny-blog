@@ -8,6 +8,11 @@
     <style>
       body {
         font-family: arial;
+        margin: 0.4rem;
+      }
+      main {
+        display: flex;
+        flex-direction: column;
         max-width: 600px;
         margin: auto;
       }
@@ -41,13 +46,16 @@
     </style>
   </head>
   <body>
-    <h1>{{.SiteMetaData.Title}}</h1>
-    <p>{{.SiteMetaData.Description}}</p>
-    <h2>Recent Posts</h2>
-    <ul>
-      {{ range $key, $value := .Posts }}
-      <li><a href="{{ $key }}"> {{ $value.Title }}</a></li>
-      {{ end }}
-    </ul>
+    <main>
+      <h1>{{.SiteMetaData.Title}}</h1>
+      <a href="/create">Write a new post</a>
+      <p>{{.SiteMetaData.Description}}</p>
+      <h2>Recent Posts</h2>
+      <ul>
+        {{ range $key, $value := .Posts }}
+        <li><a href="{{ $key }}"> {{ $value.Title }}</a></li>
+        {{ end }}
+      </ul>
+    </main>
   </body>
 </html>
