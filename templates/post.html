@@ -7,6 +7,13 @@
     <style>
       body {
         font-family: arial;
+        margin: 0.4rem;
+      }
+      main,
+      header,
+      footer {
+        display: flex;
+        flex-direction: column;
         max-width: 600px;
         margin: auto;
       }
@@ -35,10 +42,15 @@
     </style>
   </head>
   <body>
-    <h1>{{.Post.Title}}</h1>
-    <p><strong>By: </strong>{{.Post.Author}}</p>
-    <p><strong>Published At: </strong>{{.Post.DatePosted}}</p>
+    <header>
+      <h1>{{.Post.Title}}</h1>
+      <a href="/{{.Post.Slug}}/edit">Edit post</a>
+      <p><strong>By: </strong>{{.Post.Author}}</p>
+      <p><strong>Published At: </strong>{{.Post.DatePosted}}</p>
+    </header>
     <main>{{.HTML}}</main>
-    <a href="/">Back</a>
+    <footer>
+      <a href="/">Back</a>
+    </footer>
   </body>
 </html>
