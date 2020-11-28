@@ -4,6 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{.Post.Title}} - {{.SiteMetaData.Title}}</title>
+    <style>
+      body {
+        font-family: arial;
+        max-width: 600px;
+        margin: auto;
+      }
+      h1 {
+        font-size: 3rem;
+      }
+      h2 {
+        font-size: 1.5rem;
+      }
+      p {
+        font-size: 1rem;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      a {
+        font-weight: 600;
+        color: #ff4f98;
+        text-decoration: none;
+      }
+      a:hover {
+        color: #ff529a;
+        text-decoration: none;
+      }
+    </style>
   </head>
   <body>
     <h1>{{.Post.Title}}</h1>
