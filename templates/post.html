@@ -25,11 +25,13 @@
       }
       p {
         font-size: 1rem;
+        line-height: 1.6rem;
       }
-      ul {
-        list-style: none;
-        padding: 0;
+      img {
+        display: block;
+        width: 100%;
       }
+
       a {
         font-weight: 600;
         color: #ff4f98;
@@ -45,8 +47,8 @@
     <header>
       <h1>{{.Post.Title}}</h1>
       <a href="/{{.Post.Slug}}/edit">Edit post</a>
-      <p><strong>By: </strong>{{.Post.Author}}</p>
-      <p><strong>Published At: </strong>{{.Post.DatePosted}}</p>
+      <span><strong>By: </strong>{{.Post.Author}}</span>
+      <span><strong>Published At: </strong>{{.Post.DatePosted}}</span>
     </header>
     <main>{{.HTML}}</main>
     <footer>
