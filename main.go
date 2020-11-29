@@ -42,7 +42,7 @@ type PostMap map[string]Post
 
 var siteMetaData = SiteMetaData{
 	Title:       "Go Tiny Blog",
-	Description: "A simple to reason about blog demonstrating the anatomy of a web app.",
+	Description: "A one file, simple to reason about blog designed to demonstrate the basic anatomy of a web app.",
 }
 
 // HomePageData is the data required to render the HTML template for the home page.
@@ -184,13 +184,18 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, r *http.Request) {
 		var post Post
 		res.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+		// Reads in the body content from the post request safely limiting to max size.
 		body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 		if err != nil {
 			panic(err)
 		}
+		// Close the Reader.
 		if err := r.Body.Close(); err != nil {
 			panic(err)
 		}
+
+		// Convert the JSON to a Post struct and write it to the post variable created at the top
+		// of the handler.
 		if err := json.Unmarshal(body, &post); err != nil {
 			res.Header().Set("Content-Type", "application/json; charset=UTF-8")
 			res.WriteHeader(422) // unprocessable entity
@@ -199,19 +204,19 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 			}
 		}
 
-		// Set the creation time stamp.
+		// Set the creation time stamp to the current server time.
 		post.DatePosted = time.Now()
 
 		// Create a URL safe slug from the timestamp and the title.
 		autoSlug := fmt.Sprintf("%s-%s", slug.Make(post.DatePosted.Format(time.RFC3339)), slug.Make(post.Title))
 		post.Slug = autoSlug
 
-		err = addPost(db, post, autoSlug)
-		if err != nil {
+		if err = upsertPost(db, post, autoSlug); err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 			res.Write([]byte("Error writing to DB."))
 			return
 		}
+
 		res.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		res.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(res).Encode(post); err != nil {
@@ -221,6 +226,11 @@ func createPostHandler(db *bolt.DB) http.HandlerFunc {
 	return fn
 }
 
+// modifyPostHandler is responsible for modifing the contents of a specific post.
+// It accepts a new post object as JSON content in the request body.
+// It writes the new post object to the URL slug value unlike the createPostHandler
+// which generates a new slug using the post date and time. Notice this means you can not change the URI.
+// This is left as homework for the reader.
 func modifyPostHandler(db *bolt.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, r *http.Request) {
 		var post Post
@@ -240,8 +250,10 @@ func modifyPostHandler(db *bolt.DB) http.HandlerFunc {
 			}
 		}
 		post.Slug = slug
-		err = addPost(db, post, slug)
-		if err != nil {
+		post.DatePosted = time.Now()
+		// Call the upsertPost function passing in the database, a post struct, and the slug.
+		// If there is an error writing to the database write an error to the response and return.
+		if err = upsertPost(db, post, slug); err != nil {
 			res.WriteHeader(http.StatusInternalServerError)
 			res.Write([]byte("Error writing to DB."))
 			return
@@ -254,6 +266,7 @@ func modifyPostHandler(db *bolt.DB) http.HandlerFunc {
 	return fn
 }
 
+// DeletePostHandler deletes the post with the key matching the slug in the URL.
 func deletePostHandler(db *bolt.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, r *http.Request) {
 		res.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -275,8 +288,9 @@ func deletePostHandler(db *bolt.DB) http.HandlerFunc {
 
 // DATA STORE FUNCTIONS
 
-// addPost writes a post to the boltDB KV store using the slug as a key, and a serialized post struct as the value.
-func addPost(db *bolt.DB, post Post, slug string) error {
+// upsertPost writes a post to the boltDB KV store using the slug as a key, and a serialized post struct as the value.
+// If the slug already exists the existing post will be overwritten.
+func upsertPost(db *bolt.DB, post Post, slug string) error {
 
 	// Marshal post struct into bytes which can be written to Bolt.
 	buf, err := json.Marshal(post)

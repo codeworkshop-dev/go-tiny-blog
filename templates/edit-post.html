@@ -67,18 +67,22 @@
       <button id="delete">Delete</button>
       <input name="title" id="title" value="{{.Post.Title}}" />
       <input name="author" id="author" value="{{.Post.Author}}" />
-      <input name="postDate" id="postDate" value="{{.Post.DatePosted}}" />
+      <input
+        name="postDate"
+        id="postDate"
+        value="{{.Post.DatePosted}}"
+        disabled
+      />
       <textarea name="body" id="body">{{.Post.Body}}</textarea>
       <button id="submit">Submit</button>
     </main>
     <script>
       async function postData(url = "", data = {}) {
-        // Default options are marked with *
         const response = await fetch(url, {
           method: "POST",
           mode: "cors",
           cache: "no-cache",
-          credentials: "same-origin", // include, *same-origin, omit
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
           },
@@ -86,7 +90,7 @@
           referrerPolicy: "no-referrer",
           body: JSON.stringify(data),
         });
-        return response.json(); // parses JSON response into native JavaScript objects
+        return response.json();
       }
 
       async function handleSubmit(e) {
@@ -104,19 +108,18 @@
       }
 
       async function deleteData(url = "", data = {}) {
-        // Default options are marked with *
         const response = await fetch(url, {
           method: "DELETE",
           mode: "cors",
           cache: "no-cache",
-          credentials: "same-origin", // include, *same-origin, omit
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
           },
           redirect: "follow",
           referrerPolicy: "no-referrer",
         });
-        return response.json(); // parses JSON response into native JavaScript objects
+        return response.json();
       }
 
       async function handleDelete(e) {
