@@ -26,7 +26,7 @@ type SiteMetaData struct {
 	Description string
 }
 
-// Post is the data required to render the HTML template for the post page.
+// Post is the data required to represent a Blog Post Object.
 type Post struct {
 	Author     string    `json:"author,omitempty"`
 	Body       string    `json:"body,omitempty"`
